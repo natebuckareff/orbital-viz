@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sp3 Orbital in a Cube</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #101113;
+      color: #f2f4f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 42%, #24262c 0, #111215 52%, #08090b 100%);
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+    }
+
+    .panel {
+      position: fixed;
+      left: 20px;
+      top: 20px;
+      width: min(360px, calc(100vw - 40px));
+      padding: 16px 18px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(10, 12, 16, 0.72);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 19px;
+      line-height: 1.18;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: #c9ced8;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #d9deea;
+    }
+
+    .key {
+      display: inline-flex;
+      align-items: center;
+      min-width: 0;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 auto;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+    }
+
+    .controls {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(10, 12, 16, 0.7);
+      backdrop-filter: blur(14px);
+    }
+
+    button {
+      width: 40px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      color: #eef2ff;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    @media (max-width: 700px) {
+      .panel {
+        left: 12px;
+        top: 12px;
+        padding: 13px 14px 15px;
+      }
+
+      h1 {
+        font-size: 17px;
+      }
+
+      .legend {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <section class="panel" aria-label="Visualization key">
+    <h1>sp3 orbital inside a cube</h1>
+    <p>The four hybrid orbital axes follow tetrahedral cube diagonals. Each arm occupies one octant, passing between the translucent xy, yz, and xz planes.</p>
+    <div class="legend">
+      <span class="key"><span class="swatch" style="background:#f04d5c"></span>x axis / yz plane</span>
+      <span class="key"><span class="swatch" style="background:#36bd6d"></span>y axis / xz plane</span>
+      <span class="key"><span class="swatch" style="background:#43a4ff"></span>z axis / xy plane</span>
+      <span class="key"><span class="swatch" style="background:#f5c64d"></span>sp3 arms</span>
+    </div>
+  </section>
+
+  <div class="controls" aria-label="View controls">
+    <button id="toggle-spin" type="button" title="Pause rotation" aria-label="Pause rotation">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6v16h4z"></path><path d="M18 4h-4v16h4z"></path></svg>
+    </button>
+    <button id="reset-view" type="button" title="Reset view" aria-label="Reset view">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v6h6"></path></svg>
+    </button>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+    const canvas = document.querySelector("#scene");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x08090b, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(6.4, 5.2, 7.2);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 0, 0);
+    controls.minDistance = 5;
+    controls.maxDistance = 14;
+    controls.update();
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x2c3445, 2.2));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.9);
+    keyLight.position.set(4, 7, 6);
+    scene.add(keyLight);
+    const rimLight = new THREE.DirectionalLight(0x85c7ff, 1.8);
+    rimLight.position.set(-7, -3, -5);
+    scene.add(rimLight);
+
+    const cubeSize = 4;
+    const cube = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize)),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.72 })
+    );
+    root.add(cube);
+
+    const grid = new THREE.GridHelper(cubeSize, 8, 0x8893a5, 0x3a414f);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.2;
+    grid.rotation.x = Math.PI / 2;
+    root.add(grid);
+
+    const planeGeometry = new THREE.PlaneGeometry(cubeSize, cubeSize);
+    const planeMaterials = {
+      xy: new THREE.MeshBasicMaterial({ color: 0x43a4ff, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false }),
+      yz: new THREE.MeshBasicMaterial({ color: 0xf04d5c, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false }),
+      xz: new THREE.MeshBasicMaterial({ color: 0x36bd6d, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false })
+    };
+
+    const xyPlane = new THREE.Mesh(planeGeometry, planeMaterials.xy);
+    xyPlane.renderOrder = 1;
+    root.add(xyPlane);
+
+    const yzPlane = new THREE.Mesh(planeGeometry, planeMaterials.yz);
+    yzPlane.rotation.y = Math.PI / 2;
+    yzPlane.renderOrder = 1;
+    root.add(yzPlane);
+
+    const xzPlane = new THREE.Mesh(planeGeometry, planeMaterials.xz);
+    xzPlane.rotation.x = Math.PI / 2;
+    xzPlane.renderOrder = 1;
+    root.add(xzPlane);
+
+    function makeAxis(direction, color, label, labelOffset) {
+      const dir = direction.clone().normalize();
+      const start = dir.clone().multiplyScalar(-2.34);
+      const end = dir.clone().multiplyScalar(2.34);
+      const arrow = new THREE.ArrowHelper(dir, start, start.distanceTo(end), color, 0.22, 0.13);
+      root.add(arrow);
+
+      const sprite = makeLabel(label, color);
+      sprite.position.copy(end).add(labelOffset);
+      root.add(sprite);
+    }
+
+    function makeLabel(text, color) {
+      const dpr = Math.min(window.devicePixelRatio, 2);
+      const labelCanvas = document.createElement("canvas");
+      labelCanvas.width = 128 * dpr;
+      labelCanvas.height = 64 * dpr;
+      const ctx = labelCanvas.getContext("2d");
+      ctx.scale(dpr, dpr);
+      ctx.font = "700 34px Inter, Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(5, 7, 10, 0.7)";
+      ctx.fillRect(36, 8, 56, 48);
+      ctx.strokeStyle = `#${color.toString(16).padStart(6, "0")}`;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(36, 8, 56, 48);
+      ctx.fillStyle = "#f8fbff";
+      ctx.fillText(text, 64, 33);
+
+      const texture = new THREE.CanvasTexture(labelCanvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(0.62, 0.31, 1);
+      return sprite;
+    }
+
+    makeAxis(new THREE.Vector3(1, 0, 0), 0xf04d5c, "x", new THREE.Vector3(0.28, 0, 0));
+    makeAxis(new THREE.Vector3(0, 1, 0), 0x36bd6d, "y", new THREE.Vector3(0, 0.28, 0));
+    makeAxis(new THREE.Vector3(0, 0, 1), 0x43a4ff, "z", new THREE.Vector3(0, 0, 0.28));
+
+    const lobeMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xf5c64d,
+      emissive: 0x3a2500,
+      roughness: 0.42,
+      metalness: 0.02,
+      clearcoat: 0.6,
+      transparent: true,
+      opacity: 0.88
+    });
+    const lobeTipMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xffe08a,
+      emissive: 0x6b4300,
+      roughness: 0.36,
+      transparent: true,
+      opacity: 0.96
+    });
+    const axisMaterial = new THREE.LineBasicMaterial({ color: 0xfff0ad, transparent: true, opacity: 0.92 });
+
+    const tetraDirections = [
+      new THREE.Vector3(1, 1, 1),
+      new THREE.Vector3(1, -1, -1),
+      new THREE.Vector3(-1, 1, -1),
+      new THREE.Vector3(-1, -1, 1)
+    ].map((v) => v.normalize());
+
+    function buildLobe(direction) {
+      const group = new THREE.Group();
+      const dir = direction.clone().normalize();
+      const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+
+      const main = new THREE.Mesh(new THREE.SphereGeometry(0.52, 48, 32), lobeMaterial);
+      main.scale.set(0.62, 1.72, 0.62);
+      main.position.copy(dir.clone().multiplyScalar(1.02));
+      main.quaternion.copy(quat);
+      group.add(main);
+
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 20), lobeTipMaterial);
+      tip.scale.set(0.76, 1.16, 0.76);
+      tip.position.copy(dir.clone().multiplyScalar(1.92));
+      tip.quaternion.copy(quat);
+      group.add(tip);
+
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          dir.clone().multiplyScalar(2.18)
+        ]),
+        axisMaterial
+      );
+      group.add(line);
+
+      const arrow = new THREE.ArrowHelper(dir, dir.clone().multiplyScalar(1.55), 0.62, 0xfff0ad, 0.15, 0.08);
+      group.add(arrow);
+      return group;
+    }
+
+    tetraDirections.forEach((direction) => root.add(buildLobe(direction)));
+
+    const nucleus = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 36, 24),
+      new THREE.MeshPhysicalMaterial({ color: 0xffffff, emissive: 0x8aa7ff, roughness: 0.2 })
+    );
+    root.add(nucleus);
+
+    const octantDots = tetraDirections.map((direction, index) => {
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.055, 18, 12),
+        new THREE.MeshBasicMaterial({ color: [0xff7b84, 0x8dde9f, 0x85c7ff, 0xffdf76][index] })
+      );
+      dot.position.copy(direction.clone().multiplyScalar(2.02));
+      root.add(dot);
+      return dot;
+    });
+
+    const viewDefault = {
+      camera: new THREE.Vector3(6.4, 5.2, 7.2),
+      target: new THREE.Vector3(0, 0, 0)
+    };
+
+    let spinning = true;
+    let pointerDown = false;
+    const toggleSpin = document.querySelector("#toggle-spin");
+    toggleSpin.addEventListener("click", () => {
+      spinning = !spinning;
+      toggleSpin.title = spinning ? "Pause rotation" : "Resume rotation";
+      toggleSpin.setAttribute("aria-label", toggleSpin.title);
+      toggleSpin.innerHTML = spinning
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6v16h4z"></path><path d="M18 4h-4v16h4z"></path></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7z"></path></svg>';
+    });
+
+    document.querySelector("#reset-view").addEventListener("click", () => {
+      camera.position.copy(viewDefault.camera);
+      controls.target.copy(viewDefault.target);
+      controls.update();
+      root.rotation.set(0, 0, 0);
+    });
+
+    renderer.domElement.addEventListener("pointerdown", () => {
+      pointerDown = true;
+    });
+    window.addEventListener("pointerup", () => {
+      pointerDown = false;
+    });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (spinning && !pointerDown) {
+        root.rotation.y += 0.0025;
+      }
+      octantDots.forEach((dot, index) => {
+        const pulse = 1 + Math.sin(performance.now() * 0.002 + index) * 0.12;
+        dot.scale.setScalar(pulse);
+      });
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
